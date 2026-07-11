@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flood Watch — Prediction &amp; Drainage Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#0A1F26;
+    --bg-panel:#123844;
+    --bg-panel-alt:#16414D;
+    --bg-panel-raise:#1B4C58;
+    --accent-safe:#4FA88B;
+    --accent-warn:#E8A33D;
+    --accent-danger:#C13F3F;
+    --text-primary:#EAF2EF;
+    --text-muted:#7FA39A;
+    --line: rgba(234,242,239,0.10);
+    --line-strong: rgba(234,242,239,0.20);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(79,168,139,0.10), transparent),
+      radial-gradient(ellipse 700px 500px at 100% 0%, rgba(232,163,61,0.06), transparent),
+      var(--bg-deep);
+    color:var(--text-primary);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding:0 0 60px 0;
+  }
+  .mono{ font-family:'IBM Plex Mono',monospace; }
+  .display{ font-family:'Space Grotesk',sans-serif; }
+
+  /* ---------- Top status bar ---------- */
+  .topbar{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:16px 32px; border-bottom:1px solid var(--line);
+    background:rgba(10,31,38,0.7); backdrop-filter:blur(6px);
+    position:sticky; top:0; z-index:10;
+  }
+  .topbar .station{
+    display:flex; align-items:center; gap:10px;
+    font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:0.08em;
+    color:var(--text-muted); text-transform:uppercase;
+  }
+  .pulse-dot{
+    width:8px;height:8px;border-radius:50%;background:var(--accent-safe);
+    box-shadow:0 0 0 0 rgba(79,168,139,0.6);
+    animation:pulse 2s infinite;
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(79,168,139,0.5);}
+    70%{box-shadow:0 0 0 8px rgba(79,168,139,0);}
+    100%{box-shadow:0 0 0 0 rgba(79,168,139,0);}
+  }
+  .status-badge{
+    font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:0.06em;
+    padding:6px 14px; border-radius:100px; border:1px solid var(--line-strong);
+    text-transform:uppercase;
+  }
+
+  /* ---------- Layout ---------- */
+  .wrap{ max-width:1180px; margin:0 auto; padding:0 32px; }
+  header.hero{ padding:56px 0 40px 0; }
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:0.12em;
+    color:var(--accent-warn); text-transform:uppercase; margin-bottom:14px;
+  }
+  h1.display{
+    font-size:44px; line-height:1.08; margin:0 0 14px 0; font-weight:600;
+    max-width:760px;
+  }
+  .hero-sub{ color:var(--text-muted); font-size:16px; max-width:600px; line-height:1.6; }
+
+  .hero-grid{
+    display:grid; grid-template-columns:220px 1fr; gap:36px; align-items:center;
+    margin-top:40px; padding:28px; border:1px solid var(--line); border-radius:16px;
+    background:linear-gradient(180deg, var(--bg-panel), rgba(18,56,68,0.4));
+  }
+  @media(max-width:720px){ .hero-grid{ grid-template-columns:1fr; } }
+
+  /* signature gauge */
+  .gauge-wrap{ display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .gauge-readout{ font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--text-muted); text-align:center; }
+  .gauge-value{ font-size:26px; font-weight:600; color:var(--text-primary); }
+
+  .hero-stats{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+  .stat-card{ padding:16px 18px; border:1px solid var(--line); border-radius:10px; background:rgba(0,0,0,0.14); }
+  .stat-label{ font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.07em; margin-bottom:8px; font-family:'IBM Plex Mono',monospace; }
+  .stat-val{ font-size:24px; font-weight:600; font-family:'IBM Plex Mono',monospace; }
+
+  /* ---------- Sections ---------- */
+  section{ padding:52px 0; border-top:1px solid var(--line); }
+  .section-head{ display:flex; align-items:baseline; gap:14px; margin-bottom:8px; }
+  .section-num{ font-family:'IBM Plex Mono',monospace; color:var(--accent-warn); font-size:13px; }
+  h2.display{ font-size:26px; font-weight:600; margin:0; }
+  .section-desc{ color:var(--text-muted); max-width:640px; line-height:1.6; margin:10px 0 30px 0; font-size:14.5px; }
+
+  .panel-grid{ display:grid; grid-template-columns:340px 1fr; gap:28px; }
+  @media(max-width:860px){ .panel-grid{ grid-template-columns:1fr; } }
+
+  .controls{
+    background:var(--bg-panel); border:1px solid var(--line); border-radius:14px; padding:24px;
+    display:flex; flex-direction:column; gap:20px;
+  }
+  .control{ display:flex; flex-direction:column; gap:8px; }
+  .control label{ display:flex; justify-content:space-between; font-size:13px; color:var(--text-muted); }
+  .control label .val{ font-family:'IBM Plex Mono',monospace; color:var(--text-primary); font-weight:600; }
+  input[type=range]{
+    -webkit-appearance:none; width:100%; height:4px; border-radius:2px;
+    background:var(--line-strong); outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:16px; height:16px; border-radius:50%;
+    background:var(--accent-warn); cursor:pointer; border:3px solid var(--bg-deep);
+    box-shadow:0 0 0 1px var(--accent-warn);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:16px; height:16px; border-radius:50%; background:var(--accent-warn); cursor:pointer; border:3px solid var(--bg-deep);
+  }
+
+  .viz-panel{
+    background:var(--bg-panel); border:1px solid var(--line); border-radius:14px; padding:24px;
+  }
+
+  /* result badges */
+  .result-row{ display:flex; gap:14px; margin-top:18px; flex-wrap:wrap; }
+  .pill{
+    font-family:'IBM Plex Mono',monospace; font-size:12px; padding:8px 14px; border-radius:100px;
+    border:1px solid var(--line-strong); color:var(--text-muted);
+  }
+  .pill b{ color:var(--text-primary); }
+
+  /* model cards */
+  .model-cards{ display:grid; grid-template-columns:repeat(2,1fr); gap:20px; margin-bottom:32px; }
+  @media(max-width:720px){ .model-cards{ grid-template-columns:1fr; } }
+  .model-card{ background:var(--bg-panel); border:1px solid var(--line); border-radius:14px; padding:22px 24px; }
+  .model-card h3{ margin:0 0 16px 0; font-family:'Space Grotesk',sans-serif; font-size:17px; font-weight:600; }
+  .metric-row{ display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px dashed var(--line); font-size:13.5px; }
+  .metric-row:last-child{ border-bottom:none; }
+  .metric-row span:last-child{ font-family:'IBM Plex Mono',monospace; color:var(--accent-safe); font-weight:600; }
+
+  .bar-row{ display:grid; grid-template-columns:170px 1fr 50px; align-items:center; gap:12px; margin:10px 0; }
+  .bar-label{ font-size:12.5px; color:var(--text-muted); font-family:'IBM Plex Mono',monospace; }
+  .bar-track{ height:10px; background:rgba(0,0,0,0.25); border-radius:5px; overflow:hidden; }
+  .bar-fill{ height:100%; background:linear-gradient(90deg,var(--accent-safe),var(--accent-warn)); border-radius:5px; }
+  .bar-val{ font-size:12px; text-align:right; font-family:'IBM Plex Mono',monospace; color:var(--text-muted); }
+
+  footer{ padding:36px 0 0 0; color:var(--text-muted); font-size:13px; line-height:1.7; }
+  footer code{ background:rgba(0,0,0,0.25); padding:2px 6px; border-radius:4px; font-family:'IBM Plex Mono',monospace; color:var(--accent-warn); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="station"><span class="pulse-dot" id="topPulse"></span> Floodline</div>
+  <div style="display:flex; gap:10px; align-items:center;">
+    <div class="status-badge" id="apiStatusBadge" style="color:var(--text-muted); border-color:var(--line-strong); font-size:11px;">CHECKING API…</div>
+    <div class="status-badge" id="topStatus" style="color:var(--accent-safe); border-color:var(--accent-safe);">MONITORING</div>
+  </div>
+</div>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">Course Project — Flood Prediction &amp; Drainage Simulation</div>
+    <h1 class="display">A live control panel for flood risk and drainage capacity.</h1>
+    <p class="hero-sub">Built on Kaggle's real 50,000-row Flood Prediction dataset. Adjust the 20 risk factors below and watch the flood-probability gauge and drainage overflow chart respond instantly, using the exact formula recovered by the trained model.</p>
+
+    <div class="hero-grid">
+      <div class="gauge-wrap">
+        <svg width="130" height="220" viewBox="0 0 130 220">
+          <!-- tube -->
+          <rect x="45" y="10" width="40" height="180" rx="20" fill="rgba(0,0,0,0.3)" stroke="var(--line-strong)" stroke-width="1.5"/>
+          <!-- tick marks -->
+          <g stroke="var(--line-strong)" stroke-width="1">
+            <line x1="30" y1="190" x2="45" y2="190"/>
+            <line x1="30" y1="145" x2="45" y2="145"/>
+            <line x1="30" y1="100" x2="45" y2="100"/>
+            <line x1="30" y1="55" x2="45" y2="55"/>
+            <line x1="30" y1="10" x2="45" y2="10"/>
+          </g>
+          <!-- threshold line -->
+          <line id="thresholdLine" x1="45" y1="64" x2="85" y2="64" stroke="var(--accent-danger)" stroke-width="2" stroke-dasharray="3,3"/>
+          <!-- liquid fill -->
+          <rect id="gaugeFill" x="47" y="150" width="36" height="38" rx="18" fill="var(--accent-safe)" style="transition:y 0.35s ease, height 0.35s ease, fill 0.35s ease;"/>
+          <rect x="45" y="10" width="40" height="180" rx="20" fill="none" stroke="var(--line-strong)" stroke-width="1.5"/>
+          <circle cx="65" cy="205" r="9" fill="var(--bg-panel-raise)" stroke="var(--line-strong)"/>
+        </svg>
+        <div class="gauge-readout">FLOOD RISK<br><span class="gauge-value" id="gaugeReadout">—</span></div>
+      </div>
+
+      <div class="hero-stats">
+        <div class="stat-card">
+          <div class="stat-label">Flood Probability</div>
+          <div class="stat-val" id="statProb" style="color:var(--accent-safe);">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Risk Level</div>
+          <div class="stat-val" id="statLevel" style="font-size:18px;">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Drainage Status</div>
+          <div class="stat-val" id="statDrain" style="font-size:18px;">—</div>
+        </div>
+        <div class="stat-card" style="grid-column:span 3;">
+          <div class="stat-label">Linear Regression — test set, n=10,000 (real Kaggle data)</div>
+          <div style="display:flex;gap:24px;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text-muted);">
+            <span>R² <b style="color:var(--accent-safe);">1.000</b></span>
+            <span>MAE <b style="color:var(--text-primary);">≈0.0000</b></span>
+            <span>RMSE <b style="color:var(--text-primary);">≈0.0000</b></span>
+            <span style="color:var(--accent-warn);">Target is an exact linear function of the 20 factors</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ SECTION 1: FLOOD RISK CALCULATOR ============ -->
+  <section id="sec-risk">
+    <div class="section-head"><span class="section-num">01</span><h2 class="display">Flood Risk Calculator</h2></div>
+    <p class="section-desc">Each factor is scored 0–20 (Kaggle's severity scale). Fitting Linear Regression on the real dataset recovered an exact formula: <code class="mono" style="color:var(--accent-warn);">FloodProbability = 0.005 × Σ(all 20 factors)</code> — R² = 1.000, meaning the target really is a perfectly equal-weighted average of these factors. Drag any slider to see it live.</p>
+
+    <div class="panel-grid" style="grid-template-columns:1fr;">
+      <div class="controls" id="riskControls" style="display:grid; grid-template-columns:1fr 1fr; gap:14px 24px;"></div>
+      <div class="viz-panel">
+        <div class="stat-label" style="margin-bottom:14px;">Live Feature Contribution</div>
+        <div id="contribBars"></div>
+        <div class="result-row">
+          <div class="pill">Exact Formula: <b id="pillProb">—</b></div>
+          <div class="pill">Classification: <b id="pillClass">—</b></div>
+          <div class="pill">FastAPI — Linear: <b id="modelPredLinear" class="mono">—</b></div>
+          <div class="pill">FastAPI — Random Forest: <b id="modelPredRF" class="mono">—</b></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SECTION 2: DRAINAGE SIMULATION ============ -->
+  <section id="sec-drainage">
+    <div class="section-head"><span class="section-num">02</span><h2 class="display">Drainage Simulation</h2></div>
+    <p class="section-desc">Rational Method: <code class="mono" style="color:var(--accent-warn);">Q = C × I × A / 360</code>. Simulates a 48-hour storm over a catchment and flags hours where runoff exceeds the drainage network's capacity.</p>
+
+    <div class="panel-grid">
+      <div class="controls" id="drainControls"></div>
+      <div class="viz-panel">
+        <svg id="drainChart" width="100%" height="280" viewBox="0 0 720 280" preserveAspectRatio="none"></svg>
+        <div class="result-row">
+          <div class="pill">Peak runoff: <b id="pillPeak">—</b> m³/s</div>
+          <div class="pill">Overflow duration: <b id="pillOverflow">—</b></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SECTION 3: MODEL PERFORMANCE ============ -->
+  <section id="sec-models">
+    <div class="section-head"><span class="section-num">03</span><h2 class="display">Model Performance</h2></div>
+    <p class="section-desc">Trained and evaluated on the real 50,000-row Kaggle dataset (80/20 train-test split, n=10,000 test rows). These are the actual results produced by <code class="mono">flood_prediction.py</code>. Since <code class="mono">FloodProbability</code> is continuous, this is a regression task — evaluated with R², MAE, and RMSE rather than accuracy.</p>
+
+    <div class="model-cards">
+      <div class="model-card">
+        <h3>Linear Regression</h3>
+        <div class="metric-row"><span>R² Score</span><span>1.000</span></div>
+        <div class="metric-row"><span>MAE</span><span>≈0.0000</span></div>
+        <div class="metric-row"><span>RMSE</span><span>≈0.0000</span></div>
+        <div class="metric-row"><span>Insight</span><span style="color:var(--accent-warn);">Perfect linear fit</span></div>
+      </div>
+      <div class="model-card">
+        <h3>Random Forest Regressor</h3>
+        <div class="metric-row"><span>R² Score</span><span>0.646</span></div>
+        <div class="metric-row"><span>MAE</span><span>0.0236</span></div>
+        <div class="metric-row"><span>RMSE</span><span>0.0297</span></div>
+        <div class="metric-row"><span>Insight</span><span style="color:var(--text-muted);">Trees split a smooth average</span></div>
+      </div>
+    </div>
+
+    <div class="viz-panel" style="margin-bottom:20px;">
+      <div class="stat-label" style="margin-bottom:6px;">Why is Linear Regression's R² exactly 1.000?</div>
+      <p style="color:var(--text-muted); font-size:13.5px; line-height:1.6; margin:0;">
+        Fitting an unregularized linear model on the raw (unscaled) features gives an intercept of 0 and a coefficient of
+        <b style="color:var(--text-primary);">exactly 0.005</b> for all 20 factors, with a maximum prediction error of ~4×10⁻¹⁶ (floating-point noise).
+        In other words, this dataset's <code class="mono">FloodProbability</code> was generated as a perfectly equal-weighted average of the 20 severity scores —
+        a useful finding to call out in your report. Random Forest scores lower (R²=0.646) precisely because tree splits approximate this smooth
+        linear average less efficiently than a straight line does.
+      </p>
+    </div>
+
+    <div class="viz-panel">
+      <div class="stat-label" style="margin-bottom:14px;">Feature Importance (Random Forest)</div>
+      <div id="importanceBars"></div>
+    </div>
+  </section>
+
+  <footer>
+    Data note: all numbers on this dashboard (model metrics, feature importance, the 0.005×Σ formula) come from the real Kaggle
+    <a href="https://www.kaggle.com/datasets/naiyakhalid/flood-prediction-dataset" style="color:var(--accent-warn);" target="_blank" rel="noopener">Flood Prediction Dataset</a>
+    (50,000 rows), trained via <code>flood_prediction.py</code>. The drainage simulation (Section 02) is a separate physics-based model (Rational Method) and does not depend on this dataset.
+  </footer>
+</div>
+
+<script>
+/* ============================================================
+   FASTAPI CONNECTION
+   Start the backend with:
+     python api/train_and_save_model.py
+     uvicorn api.app:app --reload --port 8000
+   This dashboard auto-detects it at http://127.0.0.1:8000.
+   If it's not running, everything still works using the exact
+   offline formula (0.005 × Σfactors) computed in JS below.
+   ============================================================ */
+const API_BASE = 'http://127.0.0.1:8000';
+let apiConnected = false;
+let predictDebounce = null;
+
+function updateApiStatusBadge(){
+  const badge = document.getElementById('apiStatusBadge');
+  if (!badge) return;
+  if (apiConnected){
+    badge.textContent = '● Connected — live FastAPI model';
+    badge.style.color = 'var(--accent-safe)';
+    badge.style.borderColor = 'var(--accent-safe)';
+  } else {
+    badge.textContent = '○ Offline — using exact formula (start FastAPI for live model predictions)';
+    badge.style.color = 'var(--text-muted)';
+    badge.style.borderColor = 'var(--line-strong)';
+  }
+}
+
+async function checkApiHealth(){
+  try {
+    const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(1500) });
+    const data = await res.json();
+    apiConnected = res.ok && data.status === 'ok';
+  } catch (e) {
+    apiConnected = false;
+  }
+  updateApiStatusBadge();
+  if (apiConnected) fetchModelPrediction();
+}
+
+function fetchModelPrediction(){
+  if (!apiConnected) return;
+  clearTimeout(predictDebounce);
+  predictDebounce = setTimeout(async () => {
+    const payload = {};
+    riskFeatures.forEach(f => { payload[f.api] = riskState[f.key]; });
+    try {
+      const res = await fetch(`${API_BASE}/predict`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(2500),
+      });
+      if (!res.ok) throw new Error('bad response');
+      const data = await res.json();
+      document.getElementById('modelPredLinear').textContent =
+        (data.linear_regression.flood_probability * 100).toFixed(1) + '% (' + data.linear_regression.risk_level + ')';
+      document.getElementById('modelPredRF').textContent =
+        (data.random_forest.flood_probability * 100).toFixed(1) + '% (' + data.random_forest.risk_level + ')';
+    } catch (e) {
+      apiConnected = false;
+      updateApiStatusBadge();
+    }
+  }, 200);
+}
+
+checkApiHealth();
+setInterval(checkApiHealth, 8000);
+
+/* ============================================================
+   RISK FEATURE DEFINITIONS
+   Real 20 factors from Kaggle's Flood Prediction dataset (50,000 rows).
+   Recovered formula from Linear Regression (R²=1.000):
+     FloodProbability = 0.005 × Σ(all 20 factors, each scored 0-20)
+   ============================================================ */
+const riskFeatures = [
+  {key:'monsoon',   label:'Monsoon Intensity',              w:0.005, api:'MonsoonIntensity'},
+  {key:'topo',      label:'Topography Drainage',             w:0.005, api:'TopographyDrainage'},
+  {key:'river',     label:'River Management',                w:0.005, api:'RiverManagement'},
+  {key:'deforest',  label:'Deforestation',                   w:0.005, api:'Deforestation'},
+  {key:'urban',     label:'Urbanization',                    w:0.005, api:'Urbanization'},
+  {key:'climate',   label:'Climate Change',                  w:0.005, api:'ClimateChange'},
+  {key:'dams',      label:'Dams Quality',                    w:0.005, api:'DamsQuality'},
+  {key:'silt',      label:'Siltation',                       w:0.005, api:'Siltation'},
+  {key:'agri',      label:'Agricultural Practices',          w:0.005, api:'AgriculturalPractices'},
+  {key:'encroach',  label:'Encroachments',                   w:0.005, api:'Encroachments'},
+  {key:'disaster',  label:'Ineffective Disaster Preparedness',w:0.005, api:'IneffectiveDisasterPreparedness'},
+  {key:'drainsys',  label:'Drainage Systems',                w:0.005, api:'DrainageSystems'},
+  {key:'coastal',   label:'Coastal Vulnerability',           w:0.005, api:'CoastalVulnerability'},
+  {key:'landslide', label:'Landslides',                      w:0.005, api:'Landslides'},
+  {key:'watershed', label:'Watersheds',                      w:0.005, api:'Watersheds'},
+  {key:'infra',     label:'Deteriorating Infrastructure',    w:0.005, api:'DeterioratingInfrastructure'},
+  {key:'pop',       label:'Population Score',                w:0.005, api:'PopulationScore'},
+  {key:'wetland',   label:'Wetland Loss',                    w:0.005, api:'WetlandLoss'},
+  {key:'planning',  label:'Inadequate Planning',             w:0.005, api:'InadequatePlanning'},
+  {key:'political', label:'Political Factors',               w:0.005, api:'PoliticalFactors'},
+];
+riskFeatures.forEach(f => { f.unit=''; f.min=0; f.max=20; f.step=1; f.def=5; });
+
+let riskState = {};
+riskFeatures.forEach(f => riskState[f.key] = f.def);
+
+const riskControlsEl = document.getElementById('riskControls');
+riskFeatures.forEach(f => {
+  const div = document.createElement('div');
+  div.className = 'control';
+  div.innerHTML = `
+    <label>${f.label} <span class="val" id="val-${f.key}">${f.def}${f.unit}</span></label>
+    <input type="range" id="slider-${f.key}" min="${f.min}" max="${f.max}" step="${f.step}" value="${f.def}">
+  `;
+  riskControlsEl.appendChild(div);
+});
+
+function updateRisk(){
+  let riskScore = 0;
+  const contribs = [];
+  riskFeatures.forEach(f => {
+    const val = riskState[f.key];
+    const contrib = f.w * val;
+    riskScore += contrib;
+    contribs.push({label: f.label, contrib});
+  });
+
+  const prob = riskScore; // exact formula, already 0-1 scale, no sigmoid needed
+  const pct = (prob * 100).toFixed(1);
+
+  let level, color;
+  if (prob < 0.35){ level = 'Low'; color = 'var(--accent-safe)'; }
+  else if (prob < 0.65){ level = 'Moderate'; color = 'var(--accent-warn)'; }
+  else { level = 'High'; color = 'var(--accent-danger)'; }
+
+  document.getElementById('statProb').textContent = pct + '%';
+  document.getElementById('statProb').style.color = color;
+  document.getElementById('statLevel').textContent = level;
+  document.getElementById('statLevel').style.color = color;
+  document.getElementById('pillProb').textContent = pct + '%';
+  document.getElementById('pillClass').textContent = prob >= 0.5 ? 'Flood Likely' : 'No Flood';
+
+  // gauge
+  const gaugeFill = document.getElementById('gaugeFill');
+  const tubeTop = 12, tubeBottom = 188, tubeHeight = tubeBottom - tubeTop;
+  const fillH = Math.max(18, prob * tubeHeight);
+  gaugeFill.setAttribute('y', tubeBottom - fillH);
+  gaugeFill.setAttribute('height', fillH);
+  gaugeFill.setAttribute('fill', color);
+  document.getElementById('gaugeReadout').textContent = pct + '%';
+  document.getElementById('gaugeReadout').style.color = color;
+
+  const topStatus = document.getElementById('topStatus');
+  const topPulse = document.getElementById('topPulse');
+  topStatus.textContent = level === 'High' ? 'FLOOD WARNING' : (level === 'Moderate' ? 'ELEVATED RISK' : 'MONITORING');
+  topStatus.style.color = color; topStatus.style.borderColor = color;
+  topPulse.style.background = color;
+
+  // contribution bars
+  const maxAbs = Math.max(...contribs.map(c => Math.abs(c.contrib)), 0.01);
+  const barsEl = document.getElementById('contribBars');
+  barsEl.innerHTML = '';
+  contribs.forEach(c => {
+    const pctBar = Math.min(100, Math.abs(c.contrib) / maxAbs * 100);
+    const row = document.createElement('div');
+    row.className = 'bar-row';
+    row.innerHTML = `
+      <div class="bar-label">${c.label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pctBar}%; background:${c.contrib >= 0 ? 'linear-gradient(90deg,var(--accent-warn),var(--accent-danger))' : 'linear-gradient(90deg,var(--accent-safe),#2E7D63)'};"></div></div>
+      <div class="bar-val">${c.contrib >= 0 ? '+' : ''}${c.contrib.toFixed(2)}</div>
+    `;
+    barsEl.appendChild(row);
+  });
+
+  updateDrainStatusPill(prob);
+  fetchModelPrediction();
+}
+
+riskFeatures.forEach(f => {
+  const slider = document.getElementById(`slider-${f.key}`);
+  slider.addEventListener('input', e => {
+    riskState[f.key] = parseFloat(e.target.value);
+    document.getElementById(`val-${f.key}`).textContent = riskState[f.key] + f.unit;
+    updateRisk();
+  });
+});
+
+/* ============================================================
+   DRAINAGE SIMULATION  (Rational Method, ported from drainage_simulation.py)
+   ============================================================ */
+const drainParams = [
+  {key:'C', label:'Runoff Coefficient (C)', unit:'', min:0.1, max:0.95, step:0.05, def:0.65},
+  {key:'A', label:'Catchment Area', unit:'ha', min:20, max:400, step:10, def:120},
+  {key:'cap', label:'Drainage Capacity', unit:'m³/s', min:0.5, max:8, step:0.1, def:3.0},
+];
+let drainState = {}; drainParams.forEach(p => drainState[p.key] = p.def);
+
+const drainControlsEl = document.getElementById('drainControls');
+drainParams.forEach(p => {
+  const div = document.createElement('div');
+  div.className = 'control';
+  div.innerHTML = `
+    <label>${p.label} <span class="val" id="val-${p.key}">${p.def}${p.unit}</span></label>
+    <input type="range" id="slider-${p.key}" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.def}">
+  `;
+  drainControlsEl.appendChild(div);
+});
+
+const HOURS = 48;
+function stormIntensity(){
+  const arr = [];
+  const peak = HOURS * 0.4, sigma = HOURS * 0.12;
+  for (let t = 0; t < HOURS; t++){
+    const shape = Math.exp(-Math.pow(t - peak, 2) / (2 * sigma * sigma));
+    let val = 15 * shape;
+    // deterministic light ripple for realism (no randomness so sliders feel stable)
+    val += 0.8 * Math.sin(t * 1.3) ;
+    arr.push(Math.max(0, val));
+  }
+  return arr;
+}
+const intensitySeries = stormIntensity();
+
+function drawDrainChart(){
+  const { C, A, cap } = drainState;
+  const runoff = intensitySeries.map(I => (C * I * A) / 360);
+  const maxY = Math.max(...runoff, cap) * 1.15;
+
+  const W = 720, H = 280, padL = 40, padB = 28, padT = 14, padR = 10;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const x = i => padL + (i / (HOURS - 1)) * plotW;
+  const y = v => padT + plotH - (v / maxY) * plotH;
+
+  let svg = '';
+  // grid
+  svg += `<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+plotH}" stroke="var(--line-strong)" />`;
+  svg += `<line x1="${padL}" y1="${padT+plotH}" x2="${padL+plotW}" y2="${padT+plotH}" stroke="var(--line-strong)" />`;
+  for (let gy = 0; gy <= 4; gy++){
+    const yy = padT + (plotH/4)*gy;
+    svg += `<line x1="${padL}" y1="${yy}" x2="${padL+plotW}" y2="${yy}" stroke="var(--line)" stroke-width="1"/>`;
+    const label = (maxY - (maxY/4)*gy).toFixed(1);
+    svg += `<text x="${padL-8}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--text-muted)" font-family="IBM Plex Mono, monospace">${label}</text>`;
+  }
+  // hour ticks
+  [0,12,24,36,47].forEach(t => {
+    svg += `<text x="${x(t)}" y="${H-8}" text-anchor="middle" font-size="10" fill="var(--text-muted)" font-family="IBM Plex Mono, monospace">${t}h</text>`;
+  });
+
+  // overflow shading
+  let overflowHours = 0;
+  for (let i = 0; i < HOURS; i++){
+    if (runoff[i] > cap) {
+      overflowHours++;
+      svg += `<rect x="${x(i)-plotW/(HOURS*2)}" y="${padT}" width="${plotW/HOURS}" height="${plotH}" fill="var(--accent-danger)" opacity="0.14" />`;
+    }
+  }
+
+  // capacity line
+  svg += `<line x1="${padL}" y1="${y(cap)}" x2="${padL+plotW}" y2="${y(cap)}" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="5,4"/>`;
+  svg += `<text x="${padL+plotW-4}" y="${y(cap)-6}" text-anchor="end" font-size="10" fill="var(--text-muted)" font-family="IBM Plex Mono, monospace">capacity ${cap.toFixed(1)}</text>`;
+
+  // runoff path
+  let path = `M ${x(0)} ${y(runoff[0])}`;
+  for (let i = 1; i < HOURS; i++) path += ` L ${x(i)} ${y(runoff[i])}`;
+  svg += `<path d="${path}" fill="none" stroke="var(--accent-danger)" stroke-width="2.5" />`;
+
+  // area under runoff (subtle)
+  let areaPath = path + ` L ${x(HOURS-1)} ${padT+plotH} L ${x(0)} ${padT+plotH} Z`;
+  svg += `<path d="${areaPath}" fill="var(--accent-danger)" opacity="0.06" />`;
+
+  document.getElementById('drainChart').innerHTML = svg;
+
+  const peak = Math.max(...runoff);
+  document.getElementById('pillPeak').textContent = peak.toFixed(2);
+  document.getElementById('pillOverflow').textContent = overflowHours > 0 ? `${overflowHours}h of ${HOURS}h` : 'None';
+
+  return overflowHours;
+}
+
+let lastOverflowHours = 0;
+function updateDrainStatusPill(){
+  const statDrain = document.getElementById('statDrain');
+  if (lastOverflowHours > 0){
+    statDrain.textContent = 'Overflow Risk';
+    statDrain.style.color = 'var(--accent-danger)';
+  } else {
+    statDrain.textContent = 'Within Capacity';
+    statDrain.style.color = 'var(--accent-safe)';
+  }
+}
+
+drainParams.forEach(p => {
+  const slider = document.getElementById(`slider-${p.key}`);
+  slider.addEventListener('input', e => {
+    drainState[p.key] = parseFloat(e.target.value);
+    document.getElementById(`val-${p.key}`).textContent = drainState[p.key] + p.unit;
+    lastOverflowHours = drawDrainChart();
+    updateDrainStatusPill();
+  });
+});
+
+/* ============================================================
+   FEATURE IMPORTANCE BARS (static, from trained Random Forest)
+   ============================================================ */
+const importanceData = [
+  ["Political Factors", 0.0587],
+  ["Dams Quality", 0.0567],
+  ["River Management", 0.0563],
+  ["Topography Drainage", 0.0549],
+  ["Agricultural Practices", 0.0520],
+  ["Siltation", 0.0516],
+  ["Landslides", 0.0514],
+  ["Population Score", 0.0512],
+  ["Deteriorating Infrastructure", 0.0508],
+  ["Urbanization", 0.0500],
+  ["Deforestation", 0.0497],
+  ["Encroachments", 0.0493],
+  ["Watersheds", 0.0485],
+  ["Climate Change", 0.0477],
+  ["Ineffective Disaster Preparedness", 0.0464],
+  ["Wetland Loss", 0.0457],
+  ["Coastal Vulnerability", 0.0454],
+  ["Inadequate Planning", 0.0451],
+  ["Monsoon Intensity", 0.0449],
+  ["Drainage Systems", 0.0439],
+];
+const impEl = document.getElementById('importanceBars');
+const maxImp = Math.max(...importanceData.map(d => d[1]));
+importanceData.forEach(([label, val]) => {
+  const row = document.createElement('div');
+  row.className = 'bar-row';
+  row.innerHTML = `
+    <div class="bar-label">${label}</div>
+    <div class="bar-track"><div class="bar-fill" style="width:${(val/maxImp*100)}%;"></div></div>
+    <div class="bar-val">${(val*100).toFixed(1)}%</div>
+  `;
+  impEl.appendChild(row);
+});
+
+/* init */
+updateRisk();
+lastOverflowHours = drawDrainChart();
+updateDrainStatusPill();
+</script>
+</body>
+</html>

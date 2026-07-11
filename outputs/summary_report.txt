@@ -1,0 +1,41 @@
+FLOOD PREDICTION AND DRAINAGE SIMULATION - SUMMARY REPORT
+============================================================
+
+Dataset: real Kaggle Flood Prediction dataset
+Dataset size: 50000 rows, 21 columns
+Target: FloodProbability (continuous, 0-1) -> mean 0.49966, std 0.05003
+
+MODULE 1: ML MODEL PERFORMANCE (Regression)
+------------------------------------------------------------
+Linear Regression:
+   R2 Score : 1.0000
+   MAE      : 0.0000
+   RMSE     : 0.0000
+
+Random Forest:
+   R2 Score : 0.6462
+   MAE      : 0.0236
+   RMSE     : 0.0297
+
+Top 5 most important features (Random Forest):
+   PoliticalFactors: 0.0587
+   DamsQuality: 0.0566
+   RiverManagement: 0.0563
+   TopographyDrainage: 0.0549
+   AgriculturalPractices: 0.052
+
+MODULE 2: DRAINAGE SIMULATION
+------------------------------------------------------------
+Simulated storm duration: 48 hours
+Overflow (waterlogging) hours: [21]
+Total overflow duration: 1 hour(s)
+
+Generated files (in outputs/):
+ 1_correlation_with_target.png
+ 2_flood_probability_distribution.png
+ 3_predicted_vs_actual.png
+ 4_feature_importance.png
+ 5_model_comparison.png
+ 6_rainfall_event.png
+ 7_drainage_simulation.png
+ metrics.json (for dashboard)
